@@ -1,16 +1,16 @@
 const express = require('express');
 const app = express();
+const userRoutes = require('./routes/userRoutes');
 
 // Middleware
 app.use(express.json());
-
-// Routes
-// const userRoutes = require('./router/userRoutes'); 
-// app.use('/user', userRoutes);
 
 // Default Route
 app.get("/", (req, res) => {
     res.send('Hello Rohan');
 });
+
+// Routes
+app.use("/api/", userRoutes);
 
 module.exports = app;

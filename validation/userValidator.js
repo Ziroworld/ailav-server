@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const User = require('../model/userModel');
 
 const userValidationSchema = Joi.object({
     username: Joi.string()
@@ -18,6 +19,7 @@ const userValidationSchema = Joi.object({
         .min(18)
         .max(99)
         .required(),
+        
     email: Joi.string()
         .email()
         .required(),
@@ -43,4 +45,23 @@ function userValidation(req, res, next) {
     next(); // procced to controller if validation passes 
 }
 
-module.exports = { userValidation };
+
+const validateEmail = async (req, res, next) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        return res.status(404).json({ message: 'Email not found' });
+    }
+
+    next();
+};
+
+module.exports = { 
+    userValidation,
+    validateEmail,
+};

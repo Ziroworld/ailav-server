@@ -11,6 +11,18 @@ const findAllUser = async (req, res) => {
     }
 };
 
+const save = async (req, res) => {
+    try {
+        const user = new User(req.body);
+        await user.save();
+        res.status(201).json(user);
+    }
+    catch (e) {
+        console.error('Error saving user:', e.message);
+        res.status(400).json({ message: e.message });
+    }
+};
+
 const findById = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -50,4 +62,5 @@ module.exports = {
     findById,
     deleteById,
     update,
+    save,
 };

@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 const Product = require('./productModel'); // Import the Product model
 
 const DescriptionSchema = new Schema({
-    text: {
+    longDescription: {
         type: String,
         required: true,
     },

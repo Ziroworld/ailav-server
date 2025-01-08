@@ -1,14 +1,14 @@
-const mongoose = require('mongooes');
+const mongoose = require('mongoose');
 const productModel = require('./productModel');
 
-const CategorySchema = new Schema({
+const CategorySchema = new mongoose.Schema({
     name : {
         type: String,
         required: true,
         unique: true,
     },
     createdAt: {
-        type: Data,
+        type: Date,
         default: Date.now,
     },
 });

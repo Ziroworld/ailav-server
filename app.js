@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const userRoutes = require('./routes/userRoutes');
 const authRoutes =require("./routes/authRoute")
+const productRoutes = require('./routes/productRoute');
+const categoryRoutes = require('./routes/categoryRoute');
 
 // Middleware
 app.use(express.json());
@@ -12,7 +14,9 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use('/api/users', userRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/V3/users', userRoutes);
+app.use('/api/V3/auth', authRoutes);
+app.use('/api/V3/product', productRoutes);
+app.use('/api/V3/category', categoryRoutes);
 
 module.exports = app;

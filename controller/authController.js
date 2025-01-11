@@ -3,8 +3,12 @@ const bcrypt = require('bcryptjs');
 const User = require('../model/userModel');
 const Credential = require('../model/credentialModel');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const SECRET_KEY = process.env.SECRET_KEY;
+
+const otpStore = new Map();
 
 if (!SECRET_KEY) {
     throw new Error('SECRET_KEY is not defined. Check your .env file or environment variables.');
@@ -83,8 +87,86 @@ const login = async (req, res) => {
     }
 };
 
+const requestOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Check if the email exists in the users database
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'Email not found' });
+        }
+
+        // Generate a 6-digit random OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Save OTP to the temporary store with a 10-minute expiration
+        otpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+        // Send OTP via email using NodeMailer
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL, // Your email
+                pass: process.env.EMAIL_PASSWORD, // Your email password
+            },
+        });
+
+        const mailOptions = {
+            from: process.env.EMAIL,
+            to: email,
+            subject: 'Password Reset OTP',
+            text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ message: 'OTP sent to your email' });
+    } catch (error) {
+        console.error('Error in forgotPassword:', error.message);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+// Verify OTP and Reset Password
+const resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        // Check if the OTP is valid
+        if (!isValidOtp(email, otp)) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update the password in the credentials database
+        const credentials = await Credential.findOne({ userId: user._id });
+        if (!credentials) {
+            return res.status(404).json({ message: 'Credentials not found' });
+        }
+        credentials.password = hashedPassword;
+        await credentials.save();
+
+        // Clear the OTP from the store
+        otpStore.delete(email);
+
+        res.status(200).json({ message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Error in resetPassword:', error.message);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};
+
+const isValidOtp = (email, otp) => {
+    const storedOtp = otpStore.get(email);
+    return storedOtp && storedOtp.otp === otp && storedOtp.expiresAt >= Date.now();
+};
 
 module.exports = {
     register,
     login,
+    requestOtp,
+    resetPassword,
 };

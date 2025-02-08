@@ -1,4 +1,3 @@
-// Updated Product Controller to handle category name and description input
 const Product = require('../model/productModel');
 const Category = require('../model/categoryModel');
 const Description = require('../model/descriptionModel');

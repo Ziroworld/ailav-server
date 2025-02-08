@@ -16,13 +16,13 @@ if (!SECRET_KEY) {
 
 const register = async (req, res) => {
     try {
-        const { username, password, role, name, age, email, phone } = req.body;
+        const { username, password, role, name, age, email, phone, image } = req.body;
         console.log(req.body);
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create a new user
-        const user = new User({ name, age, email, phone });
+        const user = new User({ name, age, email, phone, image });
         console.log(user)
         await user.save();
 
@@ -36,6 +36,12 @@ const register = async (req, res) => {
         await credentials.save();
         console.log('Credentials Created:', credentials);
 
+        const token = jwt.sign(
+            { username: credentials.username, role: credentials.role, userId: user._id },
+            SECRET_KEY,
+            { expiresIn: '1h' }
+        );
+
         res.status(201).json({
             message: 'User and credentials created successfully.',
             user: {
@@ -43,7 +49,9 @@ const register = async (req, res) => {
                 age: user.age,
                 email: user.email,
                 phone: user.phone,
+                image: user.image,
             },
+            token, // Send token to the client
         });
 
         console.log('User and credentials registered successfully');
@@ -164,9 +172,59 @@ const isValidOtp = (email, otp) => {
     return storedOtp && storedOtp.otp === otp && storedOtp.expiresAt >= Date.now();
 };
 
+const uploadImage = async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No files were uploaded." });
+      } else {
+        res.status(200).json({ success: true, data: req.file.filename });
+      }
+    } catch (error) {
+      res.status(500).json(error);
+    }
+}
+
+const getCurrentUser = async (req, res) => {
+    try {
+        console.log("Fetching user for ID:", req.user.userId); // ✅ Debugging
+
+        // ✅ Find user from the User collection using userId from token
+        const user = await User.findById(req.user.userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // ✅ Fetch user role from Credential model
+        const credential = await Credential.findOne({ userId: req.user.userId }).select("role");
+        if (!credential) {
+            return res.status(404).json({ message: "User credentials not found" });
+        }
+
+        // ✅ Combine user data with role
+        const userData = {
+            name: user.name,
+            age: user.age,
+            email: user.email,
+            phone: user.phone,
+            image: user.image,
+            role: credential.role, // ✅ Attach role from Credential collection
+            createdAt: user.createdAt,
+        };
+
+        console.log("Found user:", userData); // ✅ Debugging
+        res.status(200).json(userData);
+    } catch (error) {
+        console.error("Error fetching user:", error.message);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     register,
     login,
     requestOtp,
     resetPassword,
+    uploadImage,
+    getCurrentUser,
 };

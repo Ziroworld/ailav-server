@@ -32,6 +32,7 @@ const userValidationSchema = Joi.object({
         .min(8)
         .max(100)
         .required(),
+    
 
     createdAt: Joi.date().default(() => new Date()),
 

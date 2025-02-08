@@ -18,20 +18,22 @@ function generateToken(user) {
 };
 
 function authenticateToken(req, res, next) {
-    const token = req.header('Authorization')?.split(' ')[1];
+    const token = req.header("Authorization")?.split(" ")[1];
 
     if (!token) {
-        return res.status(401).json({ message: 'Access Denied. No token provided.' });
+        return res.status(401).json({ message: "Access Denied. No token provided." });
     }
 
     try {
         const decoded = jwt.verify(token, SECRET_KEY);
-        req.user = decoded;
+        req.user = decoded; // ✅ Attach user data
+        console.log("Authenticated user:", req.user); // ✅ Debugging
         next();
     } catch (err) {
-        res.status(403).json({ message: 'Invalid or expired token' });
+        return res.status(403).json({ message: "Invalid or expired token." });
     }
-};
+}
+
 
 module.exports = {
     generateToken,

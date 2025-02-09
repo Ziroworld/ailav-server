@@ -79,7 +79,7 @@ const login = async (req, res) => {
 
         // Generate JWT
         const token = jwt.sign(
-            { username: user.username, role: user.role, userId: user._id }, // Payload
+            { username: user.username, role: user.role, userId: user.userId }, // Payload
             SECRET_KEY, // Secret key
             { expiresIn: '1h' } // Token expiration
         );
@@ -88,6 +88,7 @@ const login = async (req, res) => {
         res.status(200).json({
             message: 'Login successful',
             token, // Send token to the client
+            role: user.role, // send role to the client
         });
     } catch (e) {
         console.error('Error logging in:', e.message);
@@ -186,7 +187,9 @@ const uploadImage = async (req, res) => {
 
 const getCurrentUser = async (req, res) => {
     try {
-        console.log("Fetching user for ID:", req.user.userId); // ✅ Debugging
+        // console.log("Decoded Token User:", req.user);
+        // console.log("Fetching user for ID:", req.user.userId);
+         // ✅ Debugging
 
         // ✅ Find user from the User collection using userId from token
         const user = await User.findById(req.user.userId);

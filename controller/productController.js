@@ -53,12 +53,26 @@ const createProduct = async (req, res) => {
 const getAllProducts = async (req, res) => {
   try {
     const products = await Product.find()
-      .populate('category', 'name')
-      .populate('description', 'longDescription additionalInfo');
+      .populate('category', 'name') // Populate only the category name
+      .populate('description', 'longDescription additionalInfo'); // Populate only necessary description fields
 
-    res.status(200).json(products);
+    // Transform the data to send only the required fields
+    const formattedProducts = products.map((product) => ({
+      _id: product._id,
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      category: product.category?.name || "Unknown Category", // Send category name directly
+      longDescription: product.description?.longDescription || "No description available",
+      additionalInfo: product.description?.additionalInfo || "No additional information",
+      imageUrl: product.imageUrl,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    }));
+
+    res.status(200).json(formattedProducts);
   } catch (error) {
-    console.error('Error fetching products:', error.message);
+    console.error("Error fetching products:", error.message);
     res.status(500).json({ message: error.message });
   }
 };

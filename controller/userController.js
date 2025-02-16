@@ -1,15 +1,43 @@
 const User = require('../model/userModel');
+const Credential = require('../model/credentialModel');
 
 const findAllUser = async (req, res) => {
     try {
-        const users = await User.find();
-        console.log(users);
-        res.status(200).json(users);
+      const users = await User.aggregate([
+        {
+          $lookup: {
+            from: "credentials", // This is the collection name for Credential (Mongoose pluralizes it by default)
+            localField: "_id",
+            foreignField: "userId",
+            as: "credential"
+          }
+        },
+        {
+          $unwind: {
+            path: "$credential",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            age: 1,
+            email: 1,
+            phone: 1,
+            createdAt: 1,
+            image: 1,
+            username: "$credential.username",
+            role: "$credential.role"
+          }
+        }
+      ]);
+      res.status(200).json(Array.isArray(users) ? users : []);
+      console.log(users);
+    } catch (e) {
+      console.error('Error fetching users:', e);
+      res.status(500).json({ message: e.message });
     }
-    catch (e) {
-        res.json(e);
-    }
-};
+  };
 
 const save = async (req, res) => {
     try {
@@ -36,14 +64,18 @@ const findById = async (req, res) => {
 
 const deleteById = async (req, res) => {
     try {
-        await User.findByIdAndDelete(req.params.id);
-        res.status(204).json("Data has been deleted.");
+      // First delete the user
+      const deletedUser = await User.findByIdAndDelete(req.params.id);
+      if (deletedUser) {
+        // Then delete the corresponding credential using the user's _id
+        await Credential.findOneAndDelete({ userId: req.params.id });
+      }
+      res.status(204).json("Data has been deleted.");
+    } catch (e) {
+      console.error('Error deleting user:', e.message);
+      res.status(500).json({ message: e.message });
     }
-    catch (e) {
-        console.error('Error deleting user:', e.message);
-        res.status(500).json({ message: e.message });
-    }
-};
+  };
 
 const update = async (req, res) => {
     try {

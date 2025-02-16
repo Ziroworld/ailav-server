@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {register, login, requestOtp, resetPassword, uploadImage, getCurrentUser} = require('../controller/authController');
-const {userValidation} = require('../validation/userValidator');
+// const {userValidation} = require('../validation/userValidator');
 const upload = require('../utils/uploads');
 const { authenticateToken } = require('../security/userSecurity');
 

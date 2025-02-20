@@ -21,8 +21,8 @@ app.use('/api/V3/users', userRoutes);
 app.use('/api/V3/auth', authRoutes);
 app.use('/api/V3/product', productRoutes);
 app.use('/api/V3/category', categoryRoutes);
-app.use('api/V3/cart', cartRoutes);
-app.use('api/V3/address', addressRoutes);
-app.use('api/V3/payment', paymentRoutes);
+app.use('/api/V3/cart', cartRoutes);
+app.use('/api/V3/address', addressRoutes);
+app.use('/api/V3/payment', paymentRoutes);
 
 module.exports = app;

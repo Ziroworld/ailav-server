@@ -50,6 +50,7 @@ const register = async (req, res) => {
                 email: user.email,
                 phone: user.phone,
                 image: user.image,
+                username: credentials.username,
             },
             token, // Send token to the client
         });
@@ -89,6 +90,8 @@ const login = async (req, res) => {
             message: 'Login successful',
             token, // Send token to the client
             role: user.role, // send role to the client
+            userId: user.userId, //
+            username: user.username,
         });
     } catch (e) {
         console.error('Error logging in:', e.message);
@@ -205,6 +208,7 @@ const getCurrentUser = async (req, res) => {
 
         // ✅ Combine user data with role
         const userData = {
+            id: user._id, 
             name: user.name,
             age: user.age,
             email: user.email,
@@ -212,6 +216,7 @@ const getCurrentUser = async (req, res) => {
             image: user.image,
             role: credential.role, // ✅ Attach role from Credential collection
             createdAt: user.createdAt,
+            username: credential.username,
         };
 
         console.log("Found user:", userData); // ✅ Debugging

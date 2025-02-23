@@ -7,6 +7,7 @@ const categoryRoutes = require('../routes/categoryRoute');
 const cartRoutes = require('../routes/cartRoute');
 const addressRoutes = require('../routes/addressRoute');
 const paymentRoutes = require('../routes/paymentRoute');
+const orderRoutes = require('../routes/orderRoute');
 
 // Middleware
 app.use(express.json());
@@ -24,5 +25,5 @@ app.use('/api/V3/category', categoryRoutes);
 app.use('/api/V3/cart', cartRoutes);
 app.use('/api/V3/address', addressRoutes);
 app.use('/api/V3/payment', paymentRoutes);
-
+app.use('/api/V3/order', orderRoutes);
 module.exports = app;

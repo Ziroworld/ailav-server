@@ -190,11 +190,7 @@ const uploadImage = async (req, res) => {
 
 const getCurrentUser = async (req, res) => {
     try {
-        // console.log("Decoded Token User:", req.user);
-        // console.log("Fetching user for ID:", req.user.userId);
-         // ✅ Debugging
 
-        // ✅ Find user from the User collection using userId from token
         const user = await User.findById(req.user.userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });

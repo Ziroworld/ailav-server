@@ -20,9 +20,9 @@ const OrderSchema = new Schema({
         ref: "Address",
         required: true,
     },
-    paymentId: {
-        type: Schema.Types.ObjectId,
-        ref: "Payment",
+    // Payment field is now a string instead of a reference
+    payment: {
+        type: String,
         required: true,
     },
     totalPrice: {

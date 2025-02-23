@@ -3,18 +3,17 @@ const Address = require('../model/addressModel');
 // Add a new address
 const addAddress = async (req, res) => {
     try {
-        const { userId, fullName, addressLine1, addressLine2, city, state, postalCode, country, phone } = req.body;
+        // Extract only the required fields:
+        const { userId, addressLine1, addressLine2, city, state, postalCode, country } = req.body;
 
         const address = await Address.create({
             userId,
-            fullName,
             addressLine1,
             addressLine2,
             city,
             state,
             postalCode,
             country,
-            phone,
         });
 
         res.status(201).json({ message: 'Address added successfully', address });
@@ -41,7 +40,8 @@ const getAddresses = async (req, res) => {
 const updateAddress = async (req, res) => {
     try {
         const { id } = req.params;
-        const updatedData = req.body;
+        // Only update the allowed fields:
+        const updatedData = req.body; // Expect only addressLine1, addressLine2, city, state, postalCode, county
 
         const address = await Address.findByIdAndUpdate(id, updatedData, { new: true });
         if (!address) {

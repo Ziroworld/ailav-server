@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
-  },
+  "test": "jest"
+},
   "author": "rohan_manandhar",
   "license": "ISC",
   "description": "",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "chai-http": "^5.1.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jest": "^29.7.0",

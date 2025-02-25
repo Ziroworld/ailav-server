@@ -99,82 +99,91 @@ const login = async (req, res) => {
     }
 };
 
+// Request OTP: Validate email, generate OTP, store it and send via email.
 const requestOtp = async (req, res) => {
     try {
-        const { email } = req.body;
-
-        // Check if the email exists in the users database
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(404).json({ message: 'Email not found' });
-        }
-
-        // Generate a 6-digit random OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-        // Save OTP to the temporary store with a 10-minute expiration
-        otpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-
-        // Send OTP via email using NodeMailer
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL, // Your email
-                pass: process.env.EMAIL_PASSWORD, // Your email password
-            },
-        });
-
-        const mailOptions = {
-            from: process.env.EMAIL,
-            to: email,
-            subject: 'Password Reset OTP',
-            text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({ message: 'OTP sent to your email' });
+      const { email } = req.body;
+      // console.log($email);
+      console.log("email");
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(404).json({ message: 'Email not found' });
+      }
+      // Generate a 6-digit OTP and store it with an expiration (10 minutes).
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      otpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+      console.log("EMAIL:", process.env.EMAIL);
+console.log("EMAIL_PASSWORD:", process.env.EMAIL_PASSWORD);
+      
+      // Send OTP via email (using NodeMailer or similar)
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL, // Your email
+          pass: process.env.EMAIL_PASSWORD, // Your email password
+        },
+      });
+      const mailOptions = {
+        from: process.env.EMAIL,
+        to: email,
+        subject: 'Password Reset OTP',
+        text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+      };
+      await transporter.sendMail(mailOptions);
+      
+      res.status(200).json({ message: 'OTP sent to your email' });
     } catch (error) {
-        console.error('Error in forgotPassword:', error.message);
-        res.status(500).json({ message: 'Internal Server Error' });
+      console.error('Error in requestOtp:', error.message);
+      res.status(500).json({ message: 'Internal Server Error' });
     }
-};
-
-// Verify OTP and Reset Password
-const resetPassword = async (req, res) => {
+  };
+  
+  // Verify OTP: Check if the provided OTP is valid for the given email.
+  const verifyOtp = async (req, res) => {
     try {
-        const { email, otp, newPassword } = req.body;
-
-        // Check if the OTP is valid
-        if (!isValidOtp(email, otp)) {
-            return res.status(400).json({ message: 'Invalid or expired OTP' });
-        }
-
-        // Hash the new password
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Update the password in the credentials database
-        const credentials = await Credential.findOne({ userId: user._id });
-        if (!credentials) {
-            return res.status(404).json({ message: 'Credentials not found' });
-        }
-        credentials.password = hashedPassword;
-        await credentials.save();
-
-        // Clear the OTP from the store
-        otpStore.delete(email);
-
-        res.status(200).json({ message: 'Password reset successfully' });
+      const { email, otp } = req.body;
+      const storedOtp = otpStore.get(email);
+      if (!storedOtp || storedOtp.otp !== otp || storedOtp.expiresAt < Date.now()) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+      // If OTP is valid, fetch user id and return it (or simply indicate success).
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      res.status(200).json({ message: 'OTP verified successfully', userId: user._id });
     } catch (error) {
-        console.error('Error in resetPassword:', error.message);
-        res.status(500).json({ message: 'Internal Server Error' });
+      console.error('Error in verifyOtp:', error.message);
+      res.status(500).json({ message: 'Internal Server Error' });
     }
-};
+  };
+  
+  // Reset Password: Once OTP is verified, update the user's password.
+  const resetPassword = async (req, res) => {
+    try {
+      const { userId, newPassword, email } = req.body;
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      
+      // Find credentials by userId (you might need to adjust this if your Credential model is separate)
+      const credentials = await Credential.findOne({ userId });
+      if (!credentials) {
+        return res.status(404).json({ message: 'Credentials not found' });
+      }
+      
+      credentials.password = hashedPassword;
+      await credentials.save();
+      
+      // Remove the OTP from the store (we can use email to delete it)
+      otpStore.delete(email);
+      
+      res.status(200).json({ message: 'Password reset successfully' });
+    } catch (error) {
+      console.error('Error in resetPassword:', error.message);
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  };
 
-const isValidOtp = (email, otp) => {
-    const storedOtp = otpStore.get(email);
-    return storedOtp && storedOtp.otp === otp && storedOtp.expiresAt >= Date.now();
-};
 
 const uploadImage = async (req, res) => {
     try {
@@ -231,4 +240,5 @@ module.exports = {
     resetPassword,
     uploadImage,
     getCurrentUser,
+    verifyOtp,
 };

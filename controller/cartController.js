@@ -67,18 +67,37 @@ const getCart = async (req, res) => {
 const removeFromCart = async (req, res) => {
   try {
     const { userId, productId } = req.body;
+    console.log(`Removing ${productId} from cart with id ${userId}`);
 
     const cart = await Cart.findOne({ userId });
     if (!cart) {
+      console.log(`Cart not found for user ${userId}`);
       return res.status(404).json({ message: 'Cart not found' });
     }
 
-    // Filter out the product from the cart
-    cart.items = cart.items.filter(
-      (item) => item.productId.toString() !== productId
-    );
+    // Debug: print cart items before removal
+    console.log(`Cart items before removal: ${JSON.stringify(cart.items)}`);
+
+    const originalCount = cart.items.length;
+    cart.items = cart.items.filter((item) => {
+      // Check if the productId matches either the productId or the item id (_id)
+      const matchesProductId = item.productId.toString() === productId;
+      const matchesItemId = item._id.toString() === productId;
+      
+      if (matchesProductId || matchesItemId) {
+        console.log(`Removing item: ${JSON.stringify(item)}`);
+        return false;
+      }
+      return true;
+    });
+    const removedCount = originalCount - cart.items.length;
+    console.log(`Removed ${removedCount} item(s) from cart`);
 
     await cart.save();
+    
+    // Debug: print cart items after removal
+    console.log(`Cart items after removal: ${JSON.stringify(cart.items)}`);
+    
     res.status(200).json({ message: 'Product removed from cart', cart: cart.items });
   } catch (error) {
     console.error('Error removing from cart:', error.message);

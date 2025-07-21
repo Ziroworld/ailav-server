@@ -1,14 +1,32 @@
 require('dotenv').config();
-const app = require('./app/app'); 
-const connectDB = require('./config/databaseConfig'); 
-require('dotenv').config();
+const fs = require('fs');
+const https = require('https');
+const http = require('http');
+const connectDB = require('./config/databaseConfig');
+const app = require('./app/app'); // <--- Import your Express app
 
-// Connect to the database
+// --- connect to your MongoDB
 connectDB();
 
-// Start the server
-const PORT = process.env.PORT || 8080;
+// --- SSL certificate setup
+const options = {
+  key: fs.readFileSync('C:/certificates-for-https/key.pem'),
+  cert: fs.readFileSync('C:/certificates-for-https/cert.pem')
+};
 
-app.listen(PORT, async() => {
-    console.log(`Server is running on port ${PORT}`);
+const HTTPS_PORT = process.env.PORT || 8080;
+const HTTP_PORT = 8081;
+
+// --- Start HTTPS server
+https.createServer(options, app).listen(HTTPS_PORT, () => {
+  console.log(`✅ HTTPS Server running at https://localhost:${HTTPS_PORT}`);
+});
+
+// --- Start HTTP redirect server
+http.createServer((req, res) => {
+  let host = req.headers.host.replace(/:\d+$/, ':' + HTTPS_PORT);
+  res.writeHead(301, { Location: `https://${host}${req.url}` });
+  res.end();
+}).listen(HTTP_PORT, () => {
+  console.log(`🚦 HTTP redirect server running on port ${HTTP_PORT} (redirects all traffic to HTTPS)`);
 });

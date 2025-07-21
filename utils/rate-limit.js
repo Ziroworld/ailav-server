@@ -2,7 +2,7 @@
 const rateLimit = require('express-rate-limit');
 
 // Skips the rate limiter if recaptcha was already solved
-const authLimiter = rateLimit({
+const authLimiter =  rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 3, // 3 free tries, after that must use CAPTCHA
   standardHeaders: true,

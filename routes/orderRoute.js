@@ -7,6 +7,7 @@ const {
     updateOrderStatus,
     deleteOrder,
 } = require('../controller/orderController');
+const { authenticateAccessToken } = require('../security/userSecurity');
 
 // Create a new order
 // router.post('/create', createOrder);
@@ -22,9 +23,9 @@ router.get('/user/:userId', getUserOrders);
 router.get('/', getAllOrders);
 
 // Update order status
-router.put('/update/:id', updateOrderStatus);
+router.put('/update/:id', authenticateAccessToken, updateOrderStatus);
 
 // Delete an order
-router.delete('/delete/:id', deleteOrder);
+router.delete('/delete/:id', authenticateAccessToken, deleteOrder);
 
 module.exports = router;

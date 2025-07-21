@@ -3,45 +3,82 @@ const bcrypt = require('bcryptjs');
 const User = require('../model/userModel');
 const Credential = require('../model/credentialModel');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const { sendVerificationCode } = require('../utils/emailService');
 
-const SECRET_KEY = process.env.SECRET_KEY;
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
+// ---- OTP store, other unchanged code remains ----
 const otpStore = new Map();
 
-if (!SECRET_KEY) {
-    throw new Error('SECRET_KEY is not defined. Check your .env file or environment variables.');
+if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
+    throw new Error('Token secrets not defined. Check your .env file.');
 }
+
+// Helper functions:
+function generateAccessToken(payload) {
+    return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+}
+function generateRefreshToken(payload) {
+    return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+}
+
+// Store valid refresh tokens for demo (ideally, use DB or session model)
+const refreshTokens = new Set();
+
+// ----- CONTROLLER FUNCTIONS -----
 
 const register = async (req, res) => {
     try {
-        const { username, password, role, name, age, email, phone, image } = req.body;
-        console.log(req.body);
+        const { username, password, name, age, email, phone, image } = req.body;
+        // Always assign "customer" as the default
+        const role = "customer";
 
+        // 1. Make sure username/email/phone are unique
+        const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+        if (existingUser) return res.status(409).json({ message: "Email or phone already in use." });
+
+        const existingCred = await Credential.findOne({ username });
+        if (existingCred) return res.status(409).json({ message: "Username already taken." });
+
+        // 2. Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create a new user
+        // 3. Create new user document
         const user = new User({ name, age, email, phone, image });
-        console.log(user)
         await user.save();
 
-        // Create a new credential entry
+        // 4. Create credential (ALWAYS customer unless admin inserted by dev/DB)
         const credentials = new Credential({
             username,
             password: hashedPassword,
-            role: role || 'customer',
+            role, // <-- Always customer
             userId: user._id,
         });
         await credentials.save();
-        console.log('Credentials Created:', credentials);
 
-        const token = jwt.sign(
-            { username: credentials.username, role: credentials.role, userId: user._id },
-            SECRET_KEY,
-            { expiresIn: '1h' }
-        );
+        // 5. Build payload (role is "customer")
+        const payload = {
+            username,
+            userId: user._id,
+            role,
+            email,
+        };
 
+        // 6. Create tokens
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        refreshTokens.add(refreshToken);
+
+        // 7. Set refreshToken as HttpOnly cookie (optional but best practice)
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        // 8. Respond
         res.status(201).json({
             message: 'User and credentials created successfully.',
             user: {
@@ -51,8 +88,9 @@ const register = async (req, res) => {
                 phone: user.phone,
                 image: user.image,
                 username: credentials.username,
+                role: credentials.role,
             },
-            token, // Send token to the client
+            accessToken,
         });
 
         console.log('User and credentials registered successfully');
@@ -65,32 +103,38 @@ const register = async (req, res) => {
 const login = async (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         // Find user by username
         const user = await Credential.findOne({ username });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-
         // Compare password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        // Generate JWT
-        const token = jwt.sign(
-            { username: user.username, role: user.role, userId: user.userId }, // Payload
-            SECRET_KEY, // Secret key
-            { expiresIn: '1h' } // Token expiration
-        );
+        // Fetch user info for payload
+        const userData = await User.findById(user.userId);
+        const payload = {
+            userId: user.userId,
+            username: user.username,
+            role: user.role,
+            email: userData.email
+        };
 
-        console.log('User logged in successfully');
+        // Issue tokens
+        const accessToken = generateAccessToken(payload);
+        const refreshToken = generateRefreshToken(payload);
+        refreshTokens.add(refreshToken); // Save for later verification (for demo only; production=store in DB!)
+
         res.status(200).json({
             message: 'Login successful',
-            token, // Send token to the client
-            role: user.role, // send role to the client
-            userId: user.userId, //
+            accessToken,
+            refreshToken,
+            role: user.role,
+            userId: user.userId,
             username: user.username,
         });
     } catch (e) {
@@ -99,45 +143,50 @@ const login = async (req, res) => {
     }
 };
 
+// ---- REFRESH TOKEN ENDPOINT ----
+
+const refreshToken = (req, res) => {
+    const { token } = req.body;
+    if (!token) return res.status(401).json({ message: "No refresh token provided." });
+    if (!refreshTokens.has(token)) return res.status(403).json({ message: "Refresh token not valid." });
+
+    try {
+        const payload = jwt.verify(token, REFRESH_TOKEN_SECRET);
+        // Remove sensitive info from payload if you wish before sending
+        const newAccessToken = generateAccessToken({
+            userId: payload.userId,
+            username: payload.username,
+            role: payload.role,
+            email: payload.email
+        });
+        res.json({ accessToken: newAccessToken });
+    } catch (e) {
+        return res.status(403).json({ message: "Invalid or expired refresh token." });
+    }
+};
+
 // Request OTP: Validate email, generate OTP, store it and send via email.
 const requestOtp = async (req, res) => {
     try {
-      const { email } = req.body;
-      // console.log($email);
-      console.log("email");
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(404).json({ message: 'Email not found' });
-      }
-      // Generate a 6-digit OTP and store it with an expiration (10 minutes).
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      otpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-      console.log("EMAIL:", process.env.EMAIL);
-console.log("EMAIL_PASSWORD:", process.env.EMAIL_PASSWORD);
-      
-      // Send OTP via email (using NodeMailer or similar)
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL, // Your email
-          pass: process.env.EMAIL_PASSWORD, // Your email password
-        },
-      });
-      const mailOptions = {
-        from: process.env.EMAIL,
-        to: email,
-        subject: 'Password Reset OTP',
-        text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
-      };
-      await transporter.sendMail(mailOptions);
-      
-      res.status(200).json({ message: 'OTP sent to your email' });
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'Email not found' });
+        }
+        // Generate OTP & store
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        otpStore.set(email, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+        // Use your service!
+        await sendVerificationCode(email, otp);
+
+        res.status(200).json({ message: 'OTP sent to your email' });
     } catch (error) {
-      console.error('Error in requestOtp:', error.message);
-      res.status(500).json({ message: 'Internal Server Error' });
+        console.error('Error in requestOtp:', error.message);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
-  };
-  
+};
+
   // Verify OTP: Check if the provided OTP is valid for the given email.
   const verifyOtp = async (req, res) => {
     try {
@@ -236,6 +285,7 @@ const getCurrentUser = async (req, res) => {
 module.exports = {
     register,
     login,
+    refreshToken,
     requestOtp,
     resetPassword,
     uploadImage,

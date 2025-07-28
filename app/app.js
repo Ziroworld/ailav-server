@@ -19,6 +19,23 @@ app.use(cors({
 }));
 // --- Helmet for HTTP security headers
 app.use(helmet());
+// Add Content Security Policy (CSP) for XSS protection
+app.use(
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://www.google.com', 'https://www.gstatic.com'],
+      styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+      imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      connectSrc: ["'self'", 'https://localhost:8080'],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  })
+);
+// --- Placeholder for intrusion detection / alerting ---
+// In production, integrate with a service like Sentry, Datadog, or custom alerting for suspicious activity
 
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());

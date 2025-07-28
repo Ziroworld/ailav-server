@@ -70,12 +70,16 @@ const register = async (req, res) => {
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production" || true, // allow in local https
+            secure: true,
             sameSite: 'strict',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
         await logActivity(req, "User Registration", { userId: user._id, username, email });
+        // Suspicious activity logging: registration from new IP
+        if (req.ip) {
+            await logActivity(req, "Registration IP", { userId: user._id, ip: req.ip });
+        }
 
         res.status(201).json({
             message: 'User and credentials created successfully.',
@@ -133,6 +137,10 @@ const login = async (req, res) => {
         });
 
         await logActivity(req, "User Login", { userId: user.userId, username });
+        // Suspicious activity logging: login from new IP
+        if (req.ip) {
+            await logActivity(req, "Login IP", { userId: user.userId, ip: req.ip });
+        }
 
         res.status(200).json({
             message: 'Login successful',
@@ -165,6 +173,10 @@ const refreshToken = async (req, res) => {
         });
 
         await logActivity(req, "Refresh Token Used", { userId: payload.userId, username: payload.username });
+        // Suspicious activity logging: refresh from new IP
+        if (req.ip) {
+            await logActivity(req, "RefreshToken IP", { userId: payload.userId, ip: req.ip });
+        }
 
         res.json({ accessToken: newAccessToken });
     } catch (e) {

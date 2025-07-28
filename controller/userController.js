@@ -1,6 +1,7 @@
 const User = require('../model/userModel');
 const Credential = require('../model/credentialModel');
-const logActivity = require("../utils/logActivity"); // <-- Import logging utility
+const logActivity = require("../utils/logActivity");
+const sanitizeHtml = require('../utils/sanitizeHtml'); // <-- Import sanitizer
 
 const findAllUser = async (req, res) => {
     try {
@@ -32,7 +33,6 @@ const findAllUser = async (req, res) => {
           }
         }
       ]);
-      // Activity log for admin/all users list fetch
       await logActivity(req, "Fetched All Users", { requestedBy: req.user ? req.user._id : "unknown" });
 
       res.status(200).json(Array.isArray(users) ? users : []);
@@ -45,10 +45,15 @@ const findAllUser = async (req, res) => {
 
 const save = async (req, res) => {
     try {
-        const user = new User(req.body);
-        await user.save();
+        // Sanitize all string fields
+        let payload = { ...req.body };
+        if (payload.name) payload.name = sanitizeHtml(payload.name);
+        if (payload.email) payload.email = sanitizeHtml(payload.email);
+        if (payload.phone) payload.phone = sanitizeHtml(payload.phone);
+        if (payload.image) payload.image = sanitizeHtml(payload.image);
 
-        // Log user creation (could be admin or self-register, depending on context)
+        const user = new User(payload);
+        await user.save();
         await logActivity(req, "Created User", { userId: user._id });
 
         res.status(201).json(user);
@@ -62,10 +67,7 @@ const save = async (req, res) => {
 const findById = async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
-
-        // Log user detail fetch
         await logActivity(req, "Fetched User By ID", { requestedBy: req.user ? req.user._id : "unknown", targetUserId: req.params.id });
-
         res.status(200).json(user);
     }
     catch (e) {
@@ -76,13 +78,9 @@ const findById = async (req, res) => {
 
 const deleteById = async (req, res) => {
     try {
-      // First delete the user
       const deletedUser = await User.findByIdAndDelete(req.params.id);
       if (deletedUser) {
-        // Then delete the corresponding credential using the user's _id
         await Credential.findOneAndDelete({ userId: req.params.id });
-
-        // Log deletion
         await logActivity(req, "Deleted User", { deletedUserId: req.params.id, deletedBy: req.user ? req.user._id : "unknown" });
       }
       res.status(204).json("Data has been deleted.");
@@ -94,11 +92,14 @@ const deleteById = async (req, res) => {
 
 const update = async (req, res) => {
     try {
-        const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        let payload = { ...req.body };
+        if (payload.name) payload.name = sanitizeHtml(payload.name);
+        if (payload.email) payload.email = sanitizeHtml(payload.email);
+        if (payload.phone) payload.phone = sanitizeHtml(payload.phone);
+        if (payload.image) payload.image = sanitizeHtml(payload.image);
 
-        // Log user update
-        await logActivity(req, "Updated User", { updatedUserId: req.params.id, updatedBy: req.user ? req.user._id : "unknown", update: req.body });
-
+        const updatedUser = await User.findByIdAndUpdate(req.params.id, payload, { new: true });
+        await logActivity(req, "Updated User", { updatedUserId: req.params.id, updatedBy: req.user ? req.user._id : "unknown", update: payload });
         res.status(201).json(updatedUser);
     }
     catch (e) {

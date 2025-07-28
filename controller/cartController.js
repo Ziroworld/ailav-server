@@ -2,6 +2,7 @@ const Cart = require('../model/cartModel');
 const Product = require('../model/productModel');
 const User = require('../model/userModel');
 const logActivity = require("../utils/logActivity"); // <-- Import logging utility
+const sanitizeHtml = require('../utils/sanitizeHtml'); // <--- Import
 
 // Add product to cart
 const addToCart = async (req, res) => {
@@ -27,11 +28,11 @@ const addToCart = async (req, res) => {
     if (existingItem) {
       existingItem.quantity += quantity; // Update quantity
     } else {
-      // Add new item to cart, including the product image URL
+      // Sanitize defensively
       cart.items.push({
         productId,
-        productName: product.name,
-        productImage: product.imageUrl,
+        productName: sanitizeHtml(product.name),         // <--- Here
+        productImage: sanitizeHtml(product.imageUrl),    // <--- Here
         quantity,
         price: product.price,
       });
@@ -39,7 +40,6 @@ const addToCart = async (req, res) => {
 
     await cart.save();
 
-    // Activity log
     await logActivity(req, "Added Product to Cart", {
       userId,
       productId,
@@ -53,7 +53,6 @@ const addToCart = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // Get cart items
 const getCart = async (req, res) => {
   try {

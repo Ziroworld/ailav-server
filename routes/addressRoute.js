@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { addAddress, getAddresses, updateAddress, deleteAddress } = require('../controller/addressController');
+const { authenticateAccessToken } = require('../security/userSecurity');
 
 // Add a new address
 router.post('/add', authenticateAccessToken, addAddress);

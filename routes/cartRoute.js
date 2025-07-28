@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { addToCart, getCart, removeFromCart, clearCart } = require('../controller/cartController');
+const { authenticateAccessToken } = require('../security/userSecurity');
 
 // Routes
 router.post('/add', authenticateAccessToken, addToCart);

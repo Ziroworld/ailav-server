@@ -5,6 +5,7 @@ const Credential = require('../model/credentialModel');
 const jwt = require('jsonwebtoken');
 const { sendVerificationCode } = require('../utils/emailService');
 const logActivity = require('../utils/logActivity');
+const Session = require('../model/sessionSchema');
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
@@ -21,7 +22,7 @@ function generateAccessToken(payload) {
 function generateRefreshToken(payload) {
     return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
 }
-const refreshTokens = new Set();
+
 
 const register = async (req, res) => {
     try {
@@ -54,9 +55,18 @@ const register = async (req, res) => {
             email,
         };
 
+
         const accessToken = generateAccessToken(payload);
         const refreshToken = generateRefreshToken(payload);
-        refreshTokens.add(refreshToken);
+        // Save refresh token in DB
+        await Session.create({
+            userId: user._id,
+            refreshToken,
+            userAgent: req.headers['user-agent'],
+            ip: req.ip,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            valid: true
+        });
 
         res.cookie('refreshToken', refreshToken, {
             httpOnly: true,
@@ -110,9 +120,17 @@ const login = async (req, res) => {
             email: userData.email
         };
 
+
         const accessToken = generateAccessToken(payload);
         const refreshToken = generateRefreshToken(payload);
-        refreshTokens.add(refreshToken);
+        await Session.create({
+            userId: user.userId,
+            refreshToken,
+            userAgent: req.headers['user-agent'],
+            ip: req.ip,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            valid: true
+        });
 
         await logActivity(req, "User Login", { userId: user.userId, username });
 
@@ -132,8 +150,10 @@ const login = async (req, res) => {
 
 const refreshToken = async (req, res) => {
     const { token } = req.body;
+
     if (!token) return res.status(401).json({ message: "No refresh token provided." });
-    if (!refreshTokens.has(token)) return res.status(403).json({ message: "Refresh token not valid." });
+    const session = await Session.findOne({ refreshToken: token, valid: true });
+    if (!session) return res.status(403).json({ message: "Refresh token not valid." });
 
     try {
         const payload = jwt.verify(token, REFRESH_TOKEN_SECRET);

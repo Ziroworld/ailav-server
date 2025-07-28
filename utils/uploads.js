@@ -1,6 +1,7 @@
 const multer = require("multer");
 const maxSize = 2 * 1024 * 1024; // 2MB
 const path = require("path");
+const { v4: uuidv4 } = require('uuid');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -8,7 +9,8 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     let ext = path.extname(file.originalname);
-    cb(null, `IMG-${Date.now()}` + ext);
+    // Use UUID for file name
+    cb(null, `IMG-${uuidv4()}${ext}`);
   },
 });
 
@@ -18,6 +20,10 @@ const imageFileFilter = (req, file, cb) => {
   }
   cb(null, true);
 };
+
+
+// Placeholder for virus scanning (implement with a real scanner in production)
+// e.g., use clamav or similar
 
 const upload = multer({
   storage: storage,

@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const app = express();
 
 const userRoutes = require('../routes/userRoutes');
@@ -16,6 +17,8 @@ app.use(cors({
   origin: ['http://localhost:5173', 'https://localhost:5173'],
   credentials: true
 }));
+// --- Helmet for HTTP security headers
+app.use(helmet());
 
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());

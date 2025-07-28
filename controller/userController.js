@@ -39,7 +39,7 @@ const findAllUser = async (req, res) => {
       console.log(users);
     } catch (e) {
       console.error('Error fetching users:', e);
-      res.status(500).json({ message: e.message });
+      res.status(500).json({ message: 'Internal server error' });
     }
 };
 
@@ -60,7 +60,7 @@ const save = async (req, res) => {
     }
     catch (e) {
         console.error('Error saving user:', e.message);
-        res.status(400).json({ message: e.message });
+        res.status(400).json({ message: 'Invalid user data' });
     }
 };
 

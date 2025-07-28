@@ -5,10 +5,10 @@ const { authenticateAccessToken } = require('../security/userSecurity');
 const { checkRole } = require('../security/roleSecurity');
 
 // Product routes
-router.post('/save', createProduct);
+router.post('/save', authenticateAccessToken, checkRole('admin'), createProduct);
 router.get('/findall', getAllProducts);
 router.get('/:id', getProductById);
-router.put('/:id', updateProduct);
-router.delete('/:id', authenticateAccessToken,checkRole('admin'), deleteProduct);
+router.put('/:id', authenticateAccessToken, checkRole('admin'), updateProduct);
+router.delete('/:id', authenticateAccessToken, checkRole('admin'), deleteProduct);
 
 module.exports = router;

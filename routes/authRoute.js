@@ -16,6 +16,8 @@ const { authLimiter } = require('../utils/rate-limit');
 const verifyRecaptcha = require('../utils/recaptcha');
 const { userValidation, loginValidation, validateEmail } = require('../validation/userValidator');
 const csrfProtection = require('../utils/csrf');
+const { loginLimiter } = require('../utils/loginLimiter');
+// Removed loginLimiter; use authLimiter for both register and login
 
 // If using multer or similar for image uploads:
 router.post('/uploadImage', upload, uploadImage);
@@ -24,7 +26,7 @@ router.post('/uploadImage', upload, uploadImage);
 router.post('/register', authLimiter, userValidation, register);
 
 // --- Login ---
-router.post('/login', verifyRecaptcha, authLimiter, loginValidation, login);
+router.post('/login', loginLimiter, verifyRecaptcha, loginValidation, login);
 
 // --- Refresh Token ---
 router.post('/refresh-token', refreshToken);

@@ -15,6 +15,7 @@ const { authenticateAccessToken } = require('../security/userSecurity');
 const { authLimiter } = require('../utils/rate-limit');
 const verifyRecaptcha = require('../utils/recaptcha');
 const { userValidation, loginValidation, validateEmail } = require('../validation/userValidator');
+const csrfProtection = require('../utils/csrf');
 
 // If using multer or similar for image uploads:
 router.post('/uploadImage', upload, uploadImage);
@@ -35,5 +36,11 @@ router.post('/reset-password', resetPassword);
 
 // --- Current User Profile ---
 router.get('/currentuser', authenticateAccessToken, getCurrentUser);
+
+// --- CSRF Token route ---
+router.get('/csrf-token', csrfProtection, (req, res) => {
+  // The token is available via req.csrfToken()
+  res.status(200).json({ csrfToken: req.csrfToken() });
+});
 
 module.exports = router;

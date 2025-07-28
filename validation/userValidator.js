@@ -25,7 +25,7 @@ function userValidation(req, res, next) {
 const loginValidationSchema = Joi.object({
   username: Joi.string().required(),
   password: Joi.string().required(),
-  // ❌ NO role, NO admin fields allowed!
+  recaptchaToken: Joi.string().optional(), 
 });
 
 function loginValidation(req, res, next) {

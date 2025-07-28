@@ -1,9 +1,9 @@
 const Address = require('../model/addressModel');
+const logActivity = require("../utils/logActivity"); // <-- Import logging utility
 
 // Add a new address
 const addAddress = async (req, res) => {
     try {
-        // Extract only the required fields:
         const { userId, addressLine1, addressLine2, city, state, postalCode, country } = req.body;
 
         const address = await Address.create({
@@ -14,6 +14,15 @@ const addAddress = async (req, res) => {
             state,
             postalCode,
             country,
+        });
+
+        // Activity log
+        await logActivity(req, "Added Address", {
+            userId,
+            addressId: address._id,
+            city,
+            state,
+            country
         });
 
         res.status(201).json({ message: 'Address added successfully', address });
@@ -29,6 +38,13 @@ const getAddresses = async (req, res) => {
         const { userId } = req.params;
 
         const addresses = await Address.find({ userId });
+
+        // Activity log
+        await logActivity(req, "Fetched Addresses", {
+            userId,
+            addressCount: addresses.length
+        });
+
         res.status(200).json({ addresses });
     } catch (error) {
         console.error('Error fetching addresses:', error.message);
@@ -40,13 +56,19 @@ const getAddresses = async (req, res) => {
 const updateAddress = async (req, res) => {
     try {
         const { id } = req.params;
-        // Only update the allowed fields:
-        const updatedData = req.body; // Expect only addressLine1, addressLine2, city, state, postalCode, county
+        const updatedData = req.body;
 
         const address = await Address.findByIdAndUpdate(id, updatedData, { new: true });
         if (!address) {
             return res.status(404).json({ message: 'Address not found' });
         }
+
+        // Activity log
+        await logActivity(req, "Updated Address", {
+            userId: address.userId,
+            addressId: id,
+            updatedFields: updatedData
+        });
 
         res.status(200).json({ message: 'Address updated successfully', address });
     } catch (error) {
@@ -64,6 +86,12 @@ const deleteAddress = async (req, res) => {
         if (!address) {
             return res.status(404).json({ message: 'Address not found' });
         }
+
+        // Activity log
+        await logActivity(req, "Deleted Address", {
+            userId: address.userId,
+            addressId: id
+        });
 
         res.status(200).json({ message: 'Address deleted successfully' });
     } catch (error) {

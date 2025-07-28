@@ -25,6 +25,5 @@ function authenticateAccessToken(req, res, next) {
 
 
 module.exports = {
-    
     authenticateAccessToken,
 };

@@ -1,12 +1,20 @@
 const Category = require('../model/categoryModel');
+const sanitizeHtml = require('../utils/sanitizeHtml'); // <-- Import the sanitizer
 
 // Create a new category
 const createCategory = async (req, res) => {
     try {
-        const { name } = req.body;
-
+        let { name } = req.body;
         if (!name || name.trim() === '') {
             return res.status(400).json({ message: 'Category name is required' });
+        }
+
+        // Sanitize the category name
+        name = sanitizeHtml(name.trim());
+
+        // Disallow empty category after sanitization
+        if (!name) {
+            return res.status(400).json({ message: 'Invalid category name' });
         }
 
         const existingCategory = await Category.findOne({ name });
@@ -53,15 +61,20 @@ const getCategoryById = async (req, res) => {
 // Update category by ID
 const updateCategoryById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { name } = req.body;
+        let { name } = req.body;
 
         if (!name || name.trim() === '') {
             return res.status(400).json({ message: 'Category name is required' });
         }
 
+        // Sanitize the category name
+        name = sanitizeHtml(name.trim());
+        if (!name) {
+            return res.status(400).json({ message: 'Invalid category name' });
+        }
+
         const category = await Category.findByIdAndUpdate(
-            id,
+            req.params.id,
             { name },
             { new: true, runValidators: true }
         );
@@ -94,7 +107,6 @@ const deleteCategoryById = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-
 
 module.exports = { 
     createCategory, 

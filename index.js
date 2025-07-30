@@ -10,8 +10,8 @@ connectDB();
 
 // --- SSL certificate setup
 const options = {
-  key: fs.readFileSync('C:/certificates-for-https/key.pem'),
-  cert: fs.readFileSync('C:/certificates-for-https/cert.pem')
+  key: fs.readFileSync('R:\College data\Semester 5\Web_Application\certificates-for-https\key.pem'),
+  cert: fs.readFileSync('R:\College data\Semester 5\Web_Application\certificates-for-https\cert.pem')
 };
 
 const HTTPS_PORT = process.env.PORT || 8080;

@@ -4,20 +4,30 @@ const https = require('https');
 const http = require('http');
 const connectDB = require('./config/databaseConfig');
 const app = require('./app/app'); // <--- Import your Express app
+const path = require("path");
 
 // --- connect to your MongoDB
 connectDB();
 
 // --- SSL certificate setup
-const options = {
-  key: fs.readFileSync('R:\College data\Semester 5\Web_Application\certificates-for-https\key.pem'),
-  cert: fs.readFileSync('R:\College data\Semester 5\Web_Application\certificates-for-https\cert.pem')
-};
+const isDocker = process.env.IS_DOCKER === 'true';
 
+const keyPath = isDocker
+  ? path.join(__dirname, 'certs/key.pem') // inside Docker
+  : path.join(__dirname, '../certificates-for-https/key.pem'); // local
+
+const certPath = isDocker
+  ? path.join(__dirname, 'certs/cert.pem')
+  : path.join(__dirname, '../certificates-for-https/cert.pem');
+
+const options = {
+  key: fs.readFileSync(keyPath),
+  cert: fs.readFileSync(certPath),
+};
 const HTTPS_PORT = process.env.PORT || 8080;
 const HTTP_PORT = 8081;
 
-// --- Start HTTPS server
+// --- Start HTTPS servers
 https.createServer(options, app).listen(HTTPS_PORT, () => {
   console.log(`✅ HTTPS Server running at https://localhost:${HTTPS_PORT}`);
 });

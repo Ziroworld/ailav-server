@@ -1,4 +1,6 @@
+
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 const loginLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -7,7 +9,8 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req, res) => {
     const username = req.body.username ? req.body.username.toLowerCase() : '';
-    return `${req.ip}|${username}`;
+    const ipKey = ipKeyGenerator(req);
+    return `${ipKey}|${username}`;
   },
   handler: async (req, res) => {
     try {

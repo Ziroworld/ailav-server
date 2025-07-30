@@ -18,6 +18,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
+
 // --- Helmet for HTTP security headers
 app.use(helmet());
 // Add Content Security Policy (CSP) for XSS protection

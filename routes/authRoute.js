@@ -17,31 +17,39 @@ const verifyRecaptcha = require('../utils/recaptcha');
 const { userValidation, loginValidation, validateEmail } = require('../validation/userValidator');
 const csrfProtection = require('../utils/csrf');
 const { loginLimiter } = require('../utils/loginLimiter');
-// Removed loginLimiter; use authLimiter for both register and login
 
-// If using multer or similar for image uploads:
+// --- Upload Profile Image ---
 router.post('/uploadImage', upload, uploadImage);
 
-// --- Registration ---
-router.post('/register', authLimiter, userValidation, register);
+// --- Register (only POST allowed) ---
+router
+  .route('/register')
+  .post(authLimiter, userValidation, register)
+  .get((req, res) => res.status(405).json({ error: 'GET request is not allowed!' }))
+  .put((req, res) => res.status(405).json({ error: 'PUT request is not allowed!' }))
+  .delete((req, res) => res.status(405).json({ error: 'DELETE request is not allowed!' }));
 
-// --- Login ---
-router.post('/login', loginLimiter, verifyRecaptcha, loginValidation, login);
+// --- Login (only POST allowed) ---
+router
+  .route('/login')
+  .post(loginLimiter, verifyRecaptcha, loginValidation, login)
+  .get((req, res) => res.status(405).json({ error: 'GET request is not allowed!' }))
+  .put((req, res) => res.status(405).json({ error: 'PUT request is not allowed!' }))
+  .delete((req, res) => res.status(405).json({ error: 'DELETE request is not allowed!' }));
 
 // --- Refresh Token ---
 router.post('/refresh-token', refreshToken);
 
-// --- OTP/Reset ---
+// --- OTP & Password Reset ---
 router.post('/request-otp', validateEmail, requestOtp);
 router.post('/verify-otp', verifyOtp);
 router.post('/reset-password', resetPassword);
 
-// --- Current User Profile ---
+// --- Current Authenticated User ---
 router.get('/currentuser', authenticateAccessToken, getCurrentUser);
 
-// --- CSRF Token route ---
+// --- CSRF Token ---
 router.get('/csrf-token', csrfProtection, (req, res) => {
-  // The token is available via req.csrfToken()
   res.status(200).json({ csrfToken: req.csrfToken() });
 });
 

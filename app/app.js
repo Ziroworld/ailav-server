@@ -15,6 +15,7 @@ const activityLogRoute = require("../routes/activityLogRoute");
 // --- CORS middleware (put this before routes!)
 app.use(cors({
   origin: ['http://localhost:5173', 'https://localhost:5173'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 // --- Helmet for HTTP security headers

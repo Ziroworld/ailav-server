@@ -3,6 +3,7 @@ const Order = require('../model/orderModel');
 const Cart = require('../model/cartModel');
 const Address = require('../model/addressModel');
 const logActivity = require("../utils/logActivity"); // <-- Logging utility
+const { trackOrderAnalytics } = require('./analyticsController');
 
 // Create a new order
 const createOrder = async (req, res) => {
@@ -53,6 +54,14 @@ const createOrder = async (req, res) => {
                 price: item.price
             }))
         });
+
+        // Track order analytics securely
+        try {
+            await trackOrderAnalytics(req, res);
+        } catch (analyticsError) {
+            console.error('Analytics tracking failed:', analyticsError);
+            // Don't fail the order creation if analytics fails
+        }
 
         res.status(201).json({ message: "Order created successfully", order });
     } catch (error) {

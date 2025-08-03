@@ -28,6 +28,34 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: false,
     },
+    // WebAuthn credentials for passwordless authentication
+    webauthnCredentials: [{
+        credentialID: {
+            type: String,
+            required: true
+        },
+        credentialPublicKey: {
+            type: String,
+            required: true
+        },
+        counter: {
+            type: Number,
+            default: 0
+        },
+        transports: [{
+            type: String,
+            enum: ['usb', 'ble', 'nfc', 'internal']
+        }],
+        createdAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    // WebAuthn registration status
+    webauthnEnabled: {
+        type: Boolean,
+        default: false
+    }
 });
 
 // Export the User model

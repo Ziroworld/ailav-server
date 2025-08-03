@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const session = require('express-session');
+const { raspMiddleware, raspMonitor } = require('../middleware/rasp');
+const SecurityMonitor = require('../utils/securityMonitor');
 const app = express();
 
 const userRoutes = require('../routes/userRoutes');
@@ -11,6 +14,10 @@ const cartRoutes = require('../routes/cartRoute');
 const addressRoutes = require('../routes/addressRoute');
 const orderRoutes = require('../routes/orderRoute');
 const activityLogRoute = require("../routes/activityLogRoute");
+const analyticsRoute = require("../routes/analyticsRoute");
+
+// Initialize security monitoring
+const securityMonitor = new SecurityMonitor();
 
 // --- CORS middleware (put this before routes!)
 app.use(cors({
@@ -42,9 +49,34 @@ app.use(
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
+// Session middleware for WebAuthn
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'webauthn-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: true,
+    httpOnly: true,
+    sameSite: 'strict',
+    maxAge: 10 * 60 * 1000 // 10 minutes for WebAuthn challenges
+  }
+}));
+
 // For parsing JSON and urlencoded data
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// RASP middleware for threat detection
+app.use(raspMiddleware);
+
+// Connect RASP to security monitoring
+raspMonitor.on('threatDetected', (threat) => {
+  securityMonitor.logIncident(threat);
+});
+
+securityMonitor.on('securityAlert', (alert) => {
+  console.error('🚨 SECURITY ALERT:', alert);
+});
 
 // Default Route
 app.get("/", (req, res) => {
@@ -60,6 +92,7 @@ app.use('/api/V3/cart', cartRoutes);
 app.use('/api/V3/address', addressRoutes);
 app.use('/api/V3/order', orderRoutes);
 app.use("/api/activity-logs", activityLogRoute);
+app.use("/api/V3/analytics", analyticsRoute);
 
 
 module.exports = app;

@@ -6,11 +6,18 @@ const jwt = require('jsonwebtoken');
 const { sendVerificationCode } = require('../utils/emailService');
 const logActivity = require('../utils/logActivity');
 const Session = require('../model/sessionSchema');
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
+const { isoBase64URL } = require('@simplewebauthn/server/helpers');
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
 const otpStore = new Map();
+
+// WebAuthn configuration
+const rpName = 'Ailav E-commerce';
+const rpID = 'localhost';
+const origin = `https://${rpID}:8080`;
 
 if (!ACCESS_TOKEN_SECRET || !REFRESH_TOKEN_SECRET) {
     throw new Error('Token secrets not defined. Check your .env file.');
@@ -299,6 +306,173 @@ const getCurrentUser = async (req, res) => {
     }
 };
 
+// WebAuthn Registration
+const startWebAuthnRegistration = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const options = await generateRegistrationOptions({
+            rpName,
+            rpID,
+            userID: user._id.toString(),
+            userName: user.email,
+            attestationType: 'none',
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'preferred',
+            },
+        });
+
+        // Store challenge in session
+        req.session.webauthnChallenge = options.challenge;
+        req.session.webauthnUserId = userId;
+
+        res.json(options);
+    } catch (error) {
+        console.error('WebAuthn registration error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const finishWebAuthnRegistration = async (req, res) => {
+    try {
+        const { credential } = req.body;
+        const expectedChallenge = req.session.webauthnChallenge;
+        const userId = req.session.webauthnUserId;
+
+        if (!expectedChallenge || !userId) {
+            return res.status(400).json({ message: 'Invalid session state' });
+        }
+
+        const verification = await verifyRegistrationResponse({
+            response: credential,
+            expectedChallenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+        });
+
+        if (verification.verified) {
+            await User.findByIdAndUpdate(userId, {
+                $push: { 
+                    webauthnCredentials: {
+                        credentialID: verification.registrationInfo.credentialID,
+                        credentialPublicKey: verification.registrationInfo.credentialPublicKey,
+                        counter: verification.registrationInfo.counter,
+                        transports: credential.response.transports || ['internal']
+                    }
+                },
+                webauthnEnabled: true
+            });
+            
+            await logActivity(req, "WebAuthn Registration", { userId });
+            res.json({ message: 'WebAuthn registration successful' });
+        } else {
+            res.status(400).json({ message: 'Registration verification failed' });
+        }
+    } catch (error) {
+        console.error('WebAuthn registration verification error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// WebAuthn Authentication
+const startWebAuthnAuthentication = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email }).populate('webauthnCredentials');
+        
+        if (!user || !user.webauthnCredentials.length) {
+            return res.status(404).json({ message: 'No WebAuthn credentials found' });
+        }
+
+        const options = await generateAuthenticationOptions({
+            rpID,
+            allowCredentials: user.webauthnCredentials.map(cred => ({
+                id: cred.credentialID,
+                type: 'public-key',
+                transports: cred.transports || ['usb', 'ble', 'nfc', 'internal'],
+            })),
+            userVerification: 'preferred',
+        });
+
+        req.session.webauthnChallenge = options.challenge;
+        req.session.webauthnUserId = user._id;
+
+        res.json(options);
+    } catch (error) {
+        console.error('WebAuthn authentication error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const finishWebAuthnAuthentication = async (req, res) => {
+    try {
+        const { credential } = req.body;
+        const expectedChallenge = req.session.webauthnChallenge;
+        const userId = req.session.webauthnUserId;
+
+        if (!expectedChallenge || !userId) {
+            return res.status(400).json({ message: 'Invalid session state' });
+        }
+
+        const user = await User.findById(userId).populate('webauthnCredentials');
+        const authenticator = user.webauthnCredentials.find(
+            cred => cred.credentialID === credential.id
+        );
+
+        if (!authenticator) {
+            return res.status(400).json({ message: 'Authenticator not found' });
+        }
+
+        const verification = await verifyAuthenticationResponse({
+            response: credential,
+            expectedChallenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            authenticator: {
+                credentialPublicKey: authenticator.credentialPublicKey,
+                credentialID: authenticator.credentialID,
+                counter: authenticator.counter,
+            },
+        });
+
+        if (verification.verified) {
+            // Update counter
+            await User.updateOne(
+                { _id: userId, 'webauthnCredentials.credentialID': credential.id },
+                { $set: { 'webauthnCredentials.$.counter': verification.authenticationInfo.newCounter } }
+            );
+
+            // Generate JWT tokens
+            const credentialData = await Credential.findOne({ userId });
+            const payload = { 
+                userId: user._id, 
+                email: user.email, 
+                role: credentialData.role 
+            };
+            const accessToken = generateAccessToken(payload);
+            const refreshToken = generateRefreshToken(payload);
+
+            await logActivity(req, "WebAuthn Login", { userId: user._id });
+
+            res.json({ 
+                accessToken, 
+                refreshToken, 
+                message: 'WebAuthn authentication successful',
+                role: credentialData.role,
+                userId: user._id
+            });
+        } else {
+            res.status(400).json({ message: 'Authentication verification failed' });
+        }
+    } catch (error) {
+        console.error('WebAuthn authentication verification error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -308,4 +482,8 @@ module.exports = {
     uploadImage,
     getCurrentUser,
     verifyOtp,
+    startWebAuthnRegistration,
+    finishWebAuthnRegistration,
+    startWebAuthnAuthentication,
+    finishWebAuthnAuthentication,
 };

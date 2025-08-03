@@ -8,7 +8,11 @@ const {
   verifyOtp,
   resetPassword,
   uploadImage,
-  getCurrentUser
+  getCurrentUser,
+  startWebAuthnRegistration,
+  finishWebAuthnRegistration,
+  startWebAuthnAuthentication,
+  finishWebAuthnAuthentication
 } = require('../controller/authController');
 const upload = require('../utils/uploads');
 const { authenticateAccessToken } = require('../security/userSecurity');
@@ -52,5 +56,11 @@ router.get('/currentuser', authenticateAccessToken, getCurrentUser);
 router.get('/csrf-token', csrfProtection, (req, res) => {
   res.status(200).json({ csrfToken: req.csrfToken() });
 });
+
+// --- WebAuthn Routes ---
+router.post('/webauthn/register/start', startWebAuthnRegistration);
+router.post('/webauthn/register/finish', finishWebAuthnRegistration);
+router.post('/webauthn/authenticate/start', startWebAuthnAuthentication);
+router.post('/webauthn/authenticate/finish', finishWebAuthnAuthentication);
 
 module.exports = router;
